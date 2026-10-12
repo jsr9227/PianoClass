@@ -32,6 +32,8 @@
       <div class="library-tools">
         <div class="chips" id="filters" role="tablist"></div>
         <input type="search" id="search" placeholder="Buscar canción o compositor…" aria-label="Buscar" />
+        <button class="btn" id="import-btn" title="Convierte un archivo MIDI (.mid) en una partitura interactiva">＋ Importar MIDI</button>
+        <input type="file" id="import-file" accept=".mid,.midi,.kar,audio/midi" multiple hidden />
       </div>
       <div class="stats-line" id="stats-line"></div>
       <div class="grid" id="song-grid"></div>
@@ -61,6 +63,7 @@
       <div class="sheet-viewport" id="sheet" title="Haz clic en un compás para saltar a él"></div>
       <div class="falling-wrap" id="falling-wrap">
         <canvas id="waterfall"></canvas>
+        <div class="chord-display" id="chord-display" hidden aria-live="polite"></div>
         <div class="wait-hint" id="wait-hint" hidden>Toca las notas resaltadas</div>
         <div class="count-in" id="count-in" hidden></div>
       </div>
@@ -110,7 +113,7 @@
         <button class="btn toggle on" id="labels" title="Mostrar nombres de las notas">Do Re Mi</button>
         <button class="btn toggle on" id="falling" title="Mostrar la cascada de notas">Cascada</button>
         <button class="btn toggle on" id="sound" title="Sonido de la aplicación">🔊</button>
-        <button class="btn toggle" id="mic" title="Usar el micrófono para escuchar tu piano acústico (una nota a la vez)">🎤</button>
+        <button class="btn toggle" id="mic" title="Usar el micrófono para escuchar tu piano acústico (reconoce notas y acordes)">🎤</button>
       </div>
     </footer>
     <div class="toast" id="toast" hidden></div>
@@ -150,13 +153,15 @@
           <li><b>Tempo:</b> baja la velocidad y súbela poco a poco.</li>
           <li><b>Bucle:</b> repite un fragmento de compases hasta que te salga.</li>
           <li>Haz clic en cualquier compás de la partitura para saltar a él.</li>
+          <li><b>Acordes:</b> al tocar varias notas a la vez verás el nombre del acorde (Do mayor, La menor, Sol7…).</li>
+          <li><b>Importar MIDI:</b> añade tus propias canciones desde un archivo .mid (por ejemplo, exportado desde MuseScore). Si tiene dos pistas, la más aguda será la mano derecha.</li>
         </ul>
       </div>
       <div>
         <h3>¿Cómo toco?</h3>
         <ul>
           <li><b>Teclado MIDI / piano digital:</b> conéctalo por USB o Bluetooth y se detecta solo (Chrome, Edge u Opera).</li>
-          <li><b>Piano acústico:</b> activa 🎤 el micrófono (detecta una nota a la vez).</li>
+          <li><b>Piano acústico:</b> activa 🎤 el micrófono. Reconoce notas sueltas y acordes; funciona mejor en un lugar silencioso y con el móvil u ordenador cerca del piano.</li>
           <li><b>Ratón o pantalla táctil:</b> pulsa las teclas del piano en pantalla.</li>
           <li><b>Teclado del ordenador:</b></li>
         </ul>
@@ -172,6 +177,9 @@
 
   <script src="js/music.js"></script>
   <script src="js/songs.js"></script>
+  <script src="js/songs-extra.js"></script>
+  <script src="js/pitch.js"></script>
+  <script src="js/midi-import.js"></script>
   <script src="js/audio.js"></script>
   <script src="js/input.js"></script>
   <script src="js/keyboard.js"></script>

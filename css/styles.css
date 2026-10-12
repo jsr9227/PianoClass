@@ -127,6 +127,12 @@ button, input, select { font: inherit; color: inherit; }
 .card-art[data-cat='Curso'] { background: var(--accent); font-family: inherit; }
 .card-art[data-cat='Popular'] { background: #f59e0b; }
 .card-art[data-cat='Clásica'] { background: #6366f1; }
+.card-art[data-cat='Infantil'] { background: #ec4899; }
+.card-art[data-cat='Navidad'] { background: #dc2626; }
+.card-art[data-cat='Mis partituras'] { background: #0ea5e9; }
+.card-delete { font-size: 0.9rem; opacity: 0.55; cursor: pointer; padding: 2px 4px; border-radius: 6px; }
+.card-delete:hover { opacity: 1; background: var(--surface-2); }
+#import-btn { white-space: nowrap; }
 .card-title { font-weight: 650; line-height: 1.25; }
 .card-sub { color: var(--ink-soft); font-size: 0.85rem; margin-top: 2px; }
 .card-meta { display: flex; gap: 10px; margin-top: 6px; font-size: 0.75rem; color: var(--ink-soft); flex-wrap: wrap; }
@@ -198,6 +204,11 @@ button, input, select { font: inherit; color: inherit; }
 .falling-wrap { position: relative; flex: 1; min-height: 60px; background: var(--stage); }
 .falling-wrap.collapsed { flex: 0 0 0; min-height: 0; }
 #waterfall { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.chord-display {
+  position: absolute; top: 10px; left: 12px; color: #fff; font-weight: 700; font-size: 1.05rem;
+  background: rgba(0, 0, 0, 0.45); padding: 4px 12px; border-radius: 10px; pointer-events: none; transition: opacity 0.6s;
+}
+.chord-display.fade { opacity: 0; transition-delay: 0.8s; }
 .wait-hint, .count-in {
   position: absolute; left: 50%; transform: translateX(-50%); color: #fff; pointer-events: none;
 }

@@ -249,7 +249,8 @@
     }
 
     // ── Entrada del alumno ──
-    noteOn(midi) {
+    // lenient: las notas inesperadas no cuentan como error (el micrófono puede oír armónicos o ruido)
+    noteOn(midi, { lenient = false } = {}) {
       this.held.add(midi);
       if (!this.song || !this.playing || this.countIn > 0) return 'neutral';
       const mode = this.settings.mode;
@@ -269,6 +270,7 @@
         // Tolerancia: tocar de nuevo una nota del paso anterior no es un error
         const prevStep = this.steps[this.stepIdx - 1];
         if (prevStep && prevStep.notes.some((n) => n.midi === midi) && this.pos - prevStep.start < 0.5) return 'neutral';
+        if (lenient) return 'neutral';
         this.stats.wrong++;
         this.hooks.onWrong && this.hooks.onWrong(midi);
         return 'wrong';
@@ -290,6 +292,7 @@
         this._mark(best, 'hit');
         return 'ok';
       }
+      if (lenient) return 'neutral';
       this.stats.wrong++;
       this.hooks.onWrong && this.hooks.onWrong(midi);
       return 'wrong';

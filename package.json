@@ -4,7 +4,7 @@
   "description": "Aplicación web para aprender piano con partituras interactivas",
   "private": true,
   "scripts": {
-    "test": "node tests/songs.test.js",
+    "test": "node tests/songs.test.js && node tests/pitch.test.js && node tests/midi.test.js",
     "start": "npx --yes serve ."
   },
   "license": "MIT"

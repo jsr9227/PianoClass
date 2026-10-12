@@ -80,7 +80,9 @@
     });
   };
 
-  // ── Micrófono: detección monofónica por autocorrelación ──
+  // ── Micrófono: detección polifónica (acordes) por análisis del espectro ──
+  // input.micHints() puede devolver las notas que la partitura espera; se detectan con más facilidad.
+  input.micHints = () => new Set();
   let mic = null;
   input.toggleMic = async function () {
     if (mic) {
@@ -91,49 +93,68 @@
     }
     try {
       const ctx = PC.audio.context;
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: false } });
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
       const src = ctx.createMediaStreamSource(stream);
       const analyser = ctx.createAnalyser();
-      analyser.fftSize = 2048;
+      analyser.fftSize = 8192; // resolución suficiente para separar semitonos graves
+      analyser.smoothingTimeConstant = 0;
       src.connect(analyser);
-      const buf = new Float32Array(analyser.fftSize);
-      let current = null;
-      let candidate = null;
-      let count = 0;
-      let silent = 0;
+      const db = new Float32Array(analyser.frequencyBinCount);
+      const mags = new Float32Array(analyser.frequencyBinCount);
+      const time = new Float32Array(2048);
+      const seen = new Map(); // midi -> fotogramas seguidos detectada
+      const missing = new Map(); // midi -> fotogramas seguidos sin detectar
+      const active = new Set();
       let prevRms = 0;
       let running = true;
+
       const loop = () => {
         if (!running) return;
-        analyser.getFloatTimeDomainData(buf);
-        const { freq, rms } = detectPitch(buf, ctx.sampleRate);
-        const onset = rms > 0.02 && rms > prevRms * 1.8;
-        prevRms = rms;
-        if (freq > 0) {
-          silent = 0;
-          const midi = Math.round(PC.music.freqToMidi(freq));
-          if (midi === candidate) count++;
-          else {
-            candidate = midi;
-            count = 1;
-          }
-          if (count >= 3 && (midi !== current || (onset && count === 3))) {
-            if (current != null) input.noteOff(current, 'mic');
-            current = midi;
-            input.noteOn(midi, 0.8, 'mic');
-          }
-        } else if (++silent > 4 && current != null) {
-          input.noteOff(current, 'mic');
-          current = null;
-          candidate = null;
+        analyser.getFloatTimeDomainData(time);
+        let rms = 0;
+        for (let i = 0; i < time.length; i++) rms += time[i] * time[i];
+        rms = Math.sqrt(rms / time.length);
+        const onset = rms > 0.015 && rms > prevRms * 1.5;
+        prevRms = prevRms * 0.6 + rms * 0.4;
+
+        let detected = [];
+        if (rms > 0.006) {
+          analyser.getFloatFrequencyData(db);
+          for (let i = 0; i < db.length; i++) mags[i] = Math.pow(10, db[i] / 20);
+          detected = PC.pitch.detectNotes(mags, ctx.sampleRate, analyser.fftSize, { hints: input.micHints() }).map((n) => n.midi);
         }
-        requestAnimationFrame(loop);
+        const now = new Set(detected);
+        for (const m of now) {
+          seen.set(m, (seen.get(m) || 0) + 1);
+          missing.delete(m);
+          if (!active.has(m) && seen.get(m) >= 3) {
+            active.add(m);
+            input.noteOn(m, Math.min(1, rms * 8), 'mic');
+          } else if (active.has(m) && onset) {
+            // Ataque nuevo sobre una nota que ya sonaba: tecla pulsada otra vez
+            input.noteOff(m, 'mic');
+            input.noteOn(m, Math.min(1, rms * 8), 'mic');
+          }
+        }
+        for (const m of [...seen.keys()]) {
+          if (now.has(m)) continue;
+          seen.delete(m);
+          missing.set(m, 0);
+        }
+        for (const [m, n] of missing) {
+          if (now.has(m)) continue;
+          if (n + 1 >= 4) {
+            missing.delete(m);
+            if (active.delete(m)) input.noteOff(m, 'mic');
+          } else missing.set(m, n + 1);
+        }
+        setTimeout(loop, 30);
       };
       loop();
       mic = {
         stop() {
           running = false;
-          if (current != null) input.noteOff(current, 'mic');
+          active.forEach((m) => input.noteOff(m, 'mic'));
           stream.getTracks().forEach((t) => t.stop());
         },
       };
@@ -142,41 +163,6 @@
       setStatus({ mic: 'denied' });
     }
   };
-
-  function detectPitch(buf, sampleRate) {
-    const n = buf.length;
-    let rms = 0;
-    for (let i = 0; i < n; i++) rms += buf[i] * buf[i];
-    rms = Math.sqrt(rms / n);
-    if (rms < 0.01) return { freq: -1, rms };
-    // Recorta los extremos por debajo del umbral para estabilizar la correlación.
-    let r1 = 0;
-    let r2 = n - 1;
-    const thr = 0.2;
-    for (let i = 0; i < n / 2; i++) if (Math.abs(buf[i]) < thr) { r1 = i; break; }
-    for (let i = 1; i < n / 2; i++) if (Math.abs(buf[n - i]) < thr) { r2 = n - i; break; }
-    const x = buf.slice(r1, r2);
-    const len = x.length;
-    const c = new Float32Array(len);
-    for (let lag = 0; lag < len; lag++) {
-      let s = 0;
-      for (let i = 0; i < len - lag; i++) s += x[i] * x[i + lag];
-      c[lag] = s;
-    }
-    let d = 0;
-    while (d < len - 1 && c[d] > c[d + 1]) d++;
-    let maxVal = -1;
-    let maxPos = -1;
-    for (let i = d; i < len; i++) if (c[i] > maxVal) { maxVal = c[i]; maxPos = i; }
-    if (maxPos <= 0 || maxVal < c[0] * 0.5) return { freq: -1, rms };
-    const a = c[maxPos - 1] || 0;
-    const b = c[maxPos];
-    const cc = c[maxPos + 1] || 0;
-    const shift = (a - cc) / (2 * (a - 2 * b + cc) || 1);
-    const freq = sampleRate / (maxPos + shift);
-    return { freq: freq > 25 && freq < 4200 ? freq : -1, rms };
-  }
-  input.detectPitch = detectPitch;
 
   PC.input = input;
 })(window);

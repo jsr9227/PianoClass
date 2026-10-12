@@ -28,6 +28,20 @@
   const starsFor = (acc) => (acc >= 95 ? 3 : acc >= 80 ? 2 : acc >= 50 ? 1 : 0);
   const starsHtml = (n, max = 3) => Array.from({ length: max }, (_, i) => `<span class="star${i < n ? ' on' : ''}">★</span>`).join('');
   const LEVELS = ['', 'Principiante', 'Fácil', 'Intermedio', 'Avanzado'];
+  const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  const ART = { Curso: null, Clásica: '𝄞', Popular: '♫', Infantil: '♪', Navidad: '❄', 'Mis partituras': '★' };
+
+  // ── Partituras importadas por el usuario (localStorage) ──
+  const USER_KEY = 'pianoclass.user-songs.v1';
+  load(USER_KEY, []).forEach((s) => PC.songs.push(s));
+  const saveUserSongs = () => {
+    try {
+      localStorage.setItem(USER_KEY, JSON.stringify(PC.songs.filter((s) => s.user)));
+      return true;
+    } catch (e) {
+      return false;
+    }
+  };
 
   // ── Biblioteca ──
   const FILTERS = [
@@ -35,6 +49,9 @@
     { id: 'course', label: 'Curso', test: (s) => s.course },
     { id: 'Popular', label: 'Popular', test: (s) => s.category === 'Popular' },
     { id: 'Clásica', label: 'Clásica', test: (s) => s.category === 'Clásica' },
+    { id: 'Infantil', label: 'Infantil', test: (s) => s.category === 'Infantil' },
+    { id: 'Navidad', label: 'Navidad', test: (s) => s.category === 'Navidad' },
+    { id: 'mine', label: 'Mis partituras', test: (s) => s.user },
     { id: 'lvl1', label: 'Principiante', test: (s) => s.level === 1 },
     { id: 'lvl3', label: 'Intermedio', test: (s) => s.level >= 3 },
   ];
@@ -51,16 +68,16 @@
           const p = progress[s.id];
           const hands = [s.lh && 'Izq.', s.rh && 'Der.'].filter(Boolean).join(' + ');
           return `<button class="card${s.course ? ' course' : ''}" data-song="${s.id}">
-            <div class="card-art" data-cat="${s.course ? 'Curso' : s.category}">${s.course ? s.lesson : s.category === 'Clásica' ? '𝄞' : '♫'}</div>
+            <div class="card-art" data-cat="${s.course ? 'Curso' : esc(s.category)}">${s.course ? s.lesson : ART[s.category] || '♫'}</div>
             <div class="card-body">
-              <div class="card-title">${s.title}</div>
-              <div class="card-sub">${s.composer}</div>
+              <div class="card-title">${esc(s.title)}</div>
+              <div class="card-sub">${esc(s.composer)}</div>
               <div class="card-meta">
                 <span class="level l${s.level}" title="Nivel">${'●'.repeat(s.level)}${'○'.repeat(4 - s.level)} ${LEVELS[s.level]}</span>
                 <span class="hands-tag">${hands}</span>
               </div>
             </div>
-            <div class="card-stars">${starsHtml(p ? p.stars : 0)}${p ? `<small>${p.best}%</small>` : ''}</div>
+            <div class="card-stars">${starsHtml(p ? p.stars : 0)}${p ? `<small>${p.best}%</small>` : ''}${s.user ? `<span class="card-delete" role="button" tabindex="0" data-delete="${s.id}" title="Eliminar partitura">🗑</span>` : ''}</div>
           </button>`;
         })
         .join('') || '<p class="empty">No hay partituras que coincidan.</p>';
@@ -72,8 +89,8 @@
     const next = PC.songs.find((s) => s.course && !(progress[s.id] && progress[s.id].stars > 0)) || PC.songs.find((s) => !(progress[s.id] && progress[s.id].stars > 0));
     $('#continue-card').innerHTML = next
       ? `<div class="hero-label">${next.course ? 'Siguiente lección' : 'Siguiente reto'}</div>
-         <div class="hero-title">${next.title}</div>
-         <div class="hero-sub">${next.composer}</div>
+         <div class="hero-title">${esc(next.title)}</div>
+         <div class="hero-sub">${esc(next.composer)}</div>
          <button class="btn primary" data-song="${next.id}">Empezar ▶</button>`
       : `<div class="hero-label">¡Enhorabuena!</div><div class="hero-title">Has completado todas las partituras</div><div class="hero-sub">Intenta conseguir 3 estrellas en todas.</div>`;
   }
@@ -85,7 +102,43 @@
     renderLibrary();
   });
   $('#search').addEventListener('input', renderLibrary);
+  $('#import-btn').addEventListener('click', () => $('#import-file').click());
+  $('#import-file').addEventListener('change', async (e) => {
+    const files = [...e.target.files];
+    e.target.value = '';
+    let last = null;
+    for (const file of files) {
+      try {
+        const midi = PC.midiImport.parseMidi(await file.arrayBuffer());
+        const song = PC.midiImport.toSong(midi, { title: file.name.replace(/\.(mid|midi|kar)$/i, '').replace(/[_-]+/g, ' ') });
+        const errors = PC.music.compileSong(song).errors;
+        if (errors.length) throw new Error(errors[0]);
+        PC.songs.push(song);
+        last = song;
+      } catch (err) {
+        alert(`No se pudo importar «${file.name}»: ${err.message}`);
+      }
+    }
+    if (!last) return;
+    if (!saveUserSongs()) alert('La partitura se ha importado, pero no cabe en el almacenamiento del navegador: se perderá al cerrar la página.');
+    filter = 'mine';
+    renderLibrary();
+    openSong(last.id);
+  });
   document.addEventListener('click', (e) => {
+    const del = e.target.closest('[data-delete]');
+    if (del) {
+      e.stopPropagation();
+      const song = PC.songs.find((s) => s.id === del.dataset.delete);
+      if (song && confirm(`¿Eliminar «${song.title}» de tus partituras?`)) {
+        PC.songs.splice(PC.songs.indexOf(song), 1);
+        delete progress[song.id];
+        save(STORE_KEY, progress);
+        saveUserSongs();
+        renderLibrary();
+      }
+      return;
+    }
     const b = e.target.closest('[data-song]');
     if (b && $('#library').classList.contains('active')) openSong(b.dataset.song);
   });
@@ -121,6 +174,7 @@
     compiled = PC.music.compileSong(current);
     if (compiled.errors.length) console.warn('Errores en la partitura', compiled.errors);
     $('#song-title').textContent = current.title;
+    $('#chord-display').hidden = true;
     $('#song-composer').textContent = current.composer;
     $('#tip-text').textContent = current.tip || '';
     $('#tip').hidden = !current.tip || prefs.tipClosed[current.id];
@@ -298,15 +352,37 @@
   });
 
   // ── Entrada de notas ──
+  const held = new Set();
+  function showChord() {
+    const el = $('#chord-display');
+    if (!el) return;
+    if (!held.size) {
+      el.classList.add('fade');
+      return;
+    }
+    el.hidden = false;
+    el.classList.remove('fade');
+    el.textContent = PC.pitch.chordName([...held]);
+  }
+  PC.input.micHints = () => {
+    const hints = new Set(player.remaining || []);
+    player.expectedKeys().forEach((h, m) => hints.add(m));
+    return hints;
+  };
+
   PC.input.on('on', (midi, vel, source) => {
+    held.add(midi);
+    showChord();
     if (source !== 'mic') PC.audio.noteOn(midi, vel);
     if (!$('#practice').classList.contains('active')) return;
     // En modo Esperar, tocar la nota resaltada arranca la canción
     if (!player.playing && player.settings.mode === 'wait' && player.remaining.has(midi)) player.play();
-    const result = player.noteOn(midi);
+    const result = player.noteOn(midi, { lenient: source === 'mic' });
     keyboard.press(midi, result === 'ok' ? 'ok' : result === 'wrong' ? 'wrong' : null);
   });
   PC.input.on('off', (midi, source) => {
+    held.delete(midi);
+    showChord();
     if (source !== 'mic') PC.audio.noteOff(midi);
     player.noteOff(midi);
     keyboard.release(midi);

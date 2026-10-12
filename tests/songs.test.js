@@ -2,6 +2,7 @@
 // Uso: node tests/songs.test.js
 require('../js/music.js');
 require('../js/songs.js');
+require('../js/songs-extra.js');
 const { PC } = globalThis;
 const assert = require('assert');
 
