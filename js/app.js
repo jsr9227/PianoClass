@@ -1,6 +1,7 @@
 // Interfaz: biblioteca de partituras, pantalla de práctica y progreso guardado.
 (function (root) {
   const PC = root.PC;
+  PC.app = PC.app || {};
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => [...document.querySelectorAll(sel)];
 
@@ -168,17 +169,25 @@
     onState: () => updateControls(),
   });
 
-  function openSong(id) {
-    current = PC.songs.find((s) => s.id === id);
+  // Contexto de ejercicio (lo usa el motor pedagógico, js/learning-ui.js); null = canción de la biblioteca
+  let exercise = null;
+  let aid = 1;
+
+  // openSong(id | partitura, { exercise, mode, tempo, segment, aid, banner })
+  function openSong(idOrSong, opts = {}) {
+    current = typeof idOrSong === 'string' ? PC.songs.find((s) => s.id === idOrSong) : idOrSong;
     if (!current) return;
+    exercise = opts.exercise || null;
+    PC.app.expectedOverride = null;
     compiled = PC.music.compileSong(current);
     if (compiled.errors.length) console.warn('Errores en la partitura', compiled.errors);
     $('#song-title').textContent = current.title;
     $('#chord-display').hidden = true;
     $('#song-composer').textContent = current.composer;
     $('#tip-text').textContent = current.tip || '';
-    $('#tip').hidden = !current.tip || prefs.tipClosed[current.id];
+    $('#tip').hidden = !!exercise || !current.tip || prefs.tipClosed[current.id];
     showView('practice');
+    renderExerciseBar(opts.banner);
 
     // Rango del teclado: las notas de la pieza con margen y al menos dos octavas
     const midis = compiled.notes.map((n) => n.midi);
@@ -207,22 +216,46 @@
     $$('#hands button').forEach((b) => (b.disabled = (b.dataset.value === 'L' && !hasL) || (b.dataset.value === 'R' && !hasR) || (b.dataset.value === 'both' && !(hasL && hasR))));
     const hands = { R: hasR, L: hasL };
 
-    const opts = $$('#loop-from option, #loop-to option');
-    opts.forEach((o) => o.remove());
+    $$('#loop-from option, #loop-to option').forEach((o) => o.remove());
     compiled.measures.forEach((m, i) => {
       $('#loop-from').add(new Option(i + 1, i));
       $('#loop-to').add(new Option(i + 1, i));
     });
 
     player.settings.loop = null;
-    player.settings.tempo = 1;
-    $('#tempo').value = 100;
+    player.settings.segment = opts.segment || null;
+    player.settings.tempo = opts.tempo || 1;
+    $('#tempo').value = Math.round(player.settings.tempo * 100);
     player.load(compiled);
-    player.set({ hands, metronome: prefs.metronome, accompany: prefs.accompany });
+    player.set({ hands, metronome: prefs.metronome, accompany: prefs.accompany, ...(opts.mode ? { mode: opts.mode } : {}) });
     player.restart();
     sheet.setLoop(null);
+    if (opts.segment) sheet.setLoop(compiled.measures[opts.segment[0]].start, compiled.measures[opts.segment[1]].start + compiled.measures[opts.segment[1]].len);
+    setAid(opts.aid || 1);
     requestAnimationFrame(() => waterfall.resize());
     updateControls();
+  }
+
+  // Niveles de ayuda (recuperación activa): 1 todo visible · 2 sin teclas · 3 guía parcial · 4 de memoria
+  function setAid(level) {
+    aid = level;
+    const pr = $('#practice');
+    [1, 2, 3, 4].forEach((n) => pr.classList.toggle('aid-' + n, n === level));
+    $('#sheet').classList.toggle('show-names', prefs.labels && level < 2);
+    $('#falling-wrap').classList.toggle('collapsed', !prefs.falling || level >= 2);
+    requestAnimationFrame(() => waterfall.resize());
+  }
+
+  function renderExerciseBar(banner) {
+    const bar = $('#exercise-bar');
+    bar.hidden = !banner;
+    if (!banner) return;
+    $('#ex-step').textContent = banner.step || '';
+    $('#ex-title').textContent = banner.title || '';
+    $('#ex-stage').textContent = banner.stage || '';
+    $('#ex-why').textContent = banner.why || '';
+    $('#ex-reason').textContent = banner.reason || '';
+    $('#ex-reason').hidden = !banner.reason;
   }
 
   function updateControls() {
@@ -249,12 +282,19 @@
     $('#sound').classList.toggle('on', prefs.sound);
     $('#sound').textContent = prefs.sound ? '🔊' : '🔇';
     $('#midi-echo').classList.toggle('on', prefs.midiEcho);
-    $('#falling-wrap').classList.toggle('collapsed', !prefs.falling);
+    $('#falling-wrap').classList.toggle('collapsed', !prefs.falling || aid >= 2);
   }
 
   // Controles
   $('#back').addEventListener('click', () => {
     player.pause();
+    if (exercise && exercise.onExit) {
+      const ex = exercise;
+      exercise = null;
+      setAid(1);
+      ex.onExit();
+      return;
+    }
     showView('library');
     renderLibrary();
   });
@@ -312,7 +352,7 @@
     prefs.labels = !prefs.labels;
     savePrefs();
     keyboard.setLabels(prefs.labels);
-    $('#sheet').classList.toggle('show-names', prefs.labels);
+    $('#sheet').classList.toggle('show-names', prefs.labels && aid < 2);
     updateControls();
   });
   $('#falling').addEventListener('click', () => {
@@ -377,11 +417,12 @@
     // Un piano digital ya suena por sí mismo: el eco de la app se puede desactivar
     if (source !== 'mic' && (source !== 'midi' || prefs.midiEcho)) PC.audio.noteOn(midi, vel);
     if (!$('#practice').classList.contains('active')) return;
+    if (PC.app.onUserNote) PC.app.onUserNote(midi, player.pos, source);
     // Lo que se espera ANTES de procesar la nota (para explicar el error)
     const expected = player.settings.mode === 'wait' ? [...player.remaining] : [...player.expectedKeys().keys()];
     // En modo Esperar, tocar la nota resaltada arranca la canción
     if (!player.playing && player.settings.mode === 'wait' && player.remaining.has(midi)) player.play();
-    const result = player.noteOn(midi, { lenient: source === 'mic' });
+    const result = player.noteOn(midi, { lenient: source === 'mic', source });
     keyboard.press(midi, result === 'ok' ? 'ok' : result === 'wrong' ? 'wrong' : null);
     if (result !== 'neutral') noteFeedback(midi, result === 'ok', expected, source);
   });
@@ -398,7 +439,7 @@
     const el = $('#note-feedback');
     const nm = (m) => PC.music.solfege(m) + (Math.floor(m / 12) - 1);
     let txt = (ok ? '✓ ' : '✗ ') + nm(midi);
-    if (!ok && expected.length) txt += ' · toca ' + expected.sort((a, b) => a - b).map(nm).join(' + ');
+    if (!ok && expected.length && aid < 2) txt += ' · toca ' + expected.sort((a, b) => a - b).map(nm).join(' + ');
     el.textContent = txt + (source === 'midi' ? ' 🎹' : '');
     el.className = 'note-feedback ' + (ok ? 'ok' : 'wrong');
     el.hidden = false;
@@ -479,7 +520,7 @@
       player.tick(dt);
       sheet.setPosition(player.pos);
       if (prefs.falling) waterfall.draw(compiled, player.pos, player.settings.hands, player.statuses, palette);
-      keyboard.setExpected(player.expectedKeys());
+      keyboard.setExpected(PC.app.expectedOverride || (aid >= 2 ? new Map() : player.expectedKeys()));
       $('#wait-hint').hidden = !(player.waiting && player.stats.hits === 0);
       const ci = $('#count-in');
       if (player.countIn > 0) {
@@ -497,6 +538,10 @@
 
   // ── Resultados ──
   function finish(stats) {
+    if (exercise) {
+      exercise.onFinish(stats);
+      return;
+    }
     if (stats.mode === 'listen') return;
     const stars = starsFor(stats.accuracy);
     const prev = progress[current.id] || { best: 0, stars: 0, plays: 0 };
@@ -558,7 +603,7 @@
   PC.input.initKeyboard();
   PC.input.initMidi();
   renderLibrary();
-  PC.app = { player, sheet, keyboard, openSong };
+  Object.assign(PC.app, { player, sheet, keyboard, openSong, showView, setAid, toast, prefs, renderLibrary, isExercise: () => !!exercise });
   // Permite abrir una pieza directamente: index.html#para-elisa
   if (location.hash.length > 1) openSong(decodeURIComponent(location.hash.slice(1)));
 })(window);

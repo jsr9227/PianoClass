@@ -24,8 +24,24 @@
         <button class="btn ghost" data-open-help>¿Cómo funciona?</button>
       </div>
     </header>
+    <nav class="tabs" id="tabs" role="tablist" aria-label="Secciones">
+      <button role="tab" data-tab="hoy">Hoy</button>
+      <button role="tab" data-tab="ruta">Mi ruta</button>
+      <button role="tab" data-tab="canciones">Canciones</button>
+      <button role="tab" data-tab="armonia">Armonía</button>
+      <button role="tab" data-tab="progreso">Progreso</button>
+    </nav>
 
-    <main class="library-main">
+    <!-- Mi sesión de hoy -->
+    <main class="library-main tab-panel" data-panel="hoy" id="panel-hoy"></main>
+    <!-- Ruta de aprendizaje -->
+    <main class="library-main tab-panel" data-panel="ruta" id="panel-ruta"></main>
+    <!-- Armonía: progresiones, acompañamiento e improvisación -->
+    <main class="library-main tab-panel" data-panel="armonia" id="panel-armonia"></main>
+    <!-- Progreso: dominio, historial, calendario -->
+    <main class="library-main tab-panel" data-panel="progreso" id="panel-progreso"></main>
+
+    <main class="library-main tab-panel" data-panel="canciones">
       <section class="hero">
         <div>
           <h1>Aprende piano a tu ritmo</h1>
@@ -60,6 +76,15 @@
       </div>
     </header>
 
+    <div class="exercise-bar" id="exercise-bar" hidden>
+      <div class="ex-main">
+        <span class="ex-step" id="ex-step"></span>
+        <b id="ex-title"></b>
+        <span class="ex-stage" id="ex-stage"></span>
+      </div>
+      <div class="ex-why"><span id="ex-why"></span> <em id="ex-reason"></em></div>
+      <button class="btn small" id="ex-skip" title="Pasar al siguiente ejercicio de la sesión">Saltar ›</button>
+    </div>
     <div class="tip" id="tip" hidden>
       <span class="tip-icon" aria-hidden="true">💡</span><span id="tip-text"></span>
       <button class="btn ghost icon small" id="tip-close" aria-label="Cerrar consejo">✕</button>
@@ -127,6 +152,50 @@
     <div class="toast" id="toast" hidden></div>
   </section>
 
+  <!-- ─────────── Entrenamiento auditivo ─────────── -->
+  <section id="ear-view" class="view">
+    <header class="topbar practice-top">
+      <button class="btn ghost icon" id="ear-back" title="Salir" aria-label="Salir">←</button>
+      <div class="song-heading">
+        <div class="song-title" id="ear-title"></div>
+        <div class="song-composer" id="ear-sub"></div>
+      </div>
+    </header>
+    <div class="exercise-bar" id="ear-bar">
+      <div class="ex-main"><span class="ex-step" id="ear-step"></span> <b id="ear-goal"></b></div>
+      <div class="ex-why" id="ear-why"></div>
+    </div>
+    <div class="ear-stage">
+      <div class="ear-progress" id="ear-progress"></div>
+      <p class="ear-prompt" id="ear-prompt"></p>
+      <button class="btn primary ear-play" id="ear-play">▶ Escuchar</button>
+      <div class="ear-options" id="ear-options"></div>
+      <div class="ear-echo" id="ear-echo" hidden>Tus notas: <span id="ear-played"></span> <button class="btn small" id="ear-clear">Borrar</button></div>
+      <p class="ear-feedback" id="ear-feedback" aria-live="polite"></p>
+      <button class="btn primary" id="ear-next" hidden>Siguiente →</button>
+    </div>
+    <div class="keyboard" id="ear-keyboard"></div>
+  </section>
+
+  <!-- ─────────── Feedback tras cada ejercicio ─────────── -->
+  <dialog id="feedback" class="modal wide feedback">
+    <h2 id="fb-title"></h2>
+    <p class="fb-sub" id="fb-sub"></p>
+    <div class="fb-dims" id="fb-dims"></div>
+    <div class="fb-cols">
+      <div><h3>Qué ha ido bien</h3><ul id="fb-good"></ul></div>
+      <div><h3>Qué mejorar</h3><ul id="fb-improve"></ul></div>
+    </div>
+    <div class="fb-decision" id="fb-decision"></div>
+    <p class="fb-reliability" id="fb-reliability"></p>
+    <div class="modal-actions">
+      <button class="btn" id="fb-exit">Terminar aquí</button>
+      <button class="btn" id="fb-retry">Repetir</button>
+      <button class="btn" id="fb-focus" hidden>Practicar el punto débil</button>
+      <button class="btn primary" id="fb-next">Siguiente →</button>
+    </div>
+  </dialog>
+
   <!-- ─────────── Resultados ─────────── -->
   <dialog id="results" class="modal">
     <h2 id="results-title">¡Bien hecho!</h2>
@@ -154,6 +223,13 @@
           <li><b>Esperar:</b> la partitura avanza y se detiene en cada nota hasta que la toques. Ideal para aprender.</li>
           <li><b>Tiempo real:</b> la canción avanza sin parar, con un compás de entrada. Se puntúa tu precisión.</li>
           <li><b>Escuchar:</b> escucha la pieza y mira qué teclas se tocan.</li>
+        </ul>
+        <h3>Aprendizaje guiado</h3>
+        <ul>
+          <li><b>Hoy:</b> tu sesión del día, adaptada a lo que necesitas repasar y reforzar. Cada ejercicio explica qué practicas y por qué.</li>
+          <li><b>Mi ruta:</b> tu itinerario por módulos. Puedes cambiarlo sin perder progreso.</li>
+          <li><b>Ayudas:</b> al progresar desaparecen las teclas iluminadas y, al final, la partitura: tocarás de memoria.</li>
+          <li><b>Progreso:</b> dominio de cada habilidad, historial y calendario de repasos.</li>
         </ul>
         <h3>Herramientas</h3>
         <ul>
@@ -202,6 +278,12 @@
   <script src="js/sheet.js"></script>
   <script src="js/player.js"></script>
   <script src="js/app.js"></script>
+  <script src="js/learning/theory.js"></script>
+  <script src="js/learning/metrics.js"></script>
+  <script src="js/learning/exercises.js"></script>
+  <script src="js/learning/curriculum.js"></script>
+  <script src="js/learning/engine.js"></script>
+  <script src="js/learning-ui.js"></script>
   <script>
     if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
   </script>

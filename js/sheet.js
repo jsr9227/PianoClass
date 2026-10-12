@@ -82,7 +82,16 @@
         const evs = events.filter((e) => e.hand === hand);
         for (const group of this._beamGroups(evs, song)) out.push(this._drawGroup(group, X));
       }
-      for (const ev of events) if (!ev.rest) out.push(this._noteheads(ev, X(ev.start)));
+      const firstSeen = new Set();
+      for (const ev of events) {
+        if (ev.rest) continue;
+        const key = ev.hand + ev.measure;
+        ev._first = !firstSeen.has(key);
+        firstSeen.add(key);
+        out.push(this._noteheads(ev, X(ev.start)));
+      }
+      // Cifrado de acordes encima del pentagrama (ejercicios de armonía)
+      (song.chords || []).forEach((c) => out.push(`<text class="chord-sym" x="${X(c.beat) - 4}" y="16">${c.name}</text>`));
 
       this.viewport.innerHTML = `
         <svg class="sheet-svg" width="${width}" height="${HEIGHT}" viewBox="0 0 ${width} ${HEIGHT}">${out.join('')}</svg>
@@ -243,7 +252,7 @@
         }
         if (p.finger) parts.push(`<text class="finger" x="${x}" y="${FINGER_Y[hand] - (hand === 'R' ? i * 11 : -i * 11)}">${p.finger}</text>`);
         parts.push(`<text class="note-name" x="${x + 9}" y="${y + 13}">${pitchSolfege(p)}</text>`);
-        out.push(`<g class="note hand-${hand}" data-n="${n.id}">${parts.join('')}</g>`);
+        out.push(`<g class="note hand-${hand}"${ev._first ? ' data-first="1"' : ''} data-n="${n.id}">${parts.join('')}</g>`);
       });
       return out.join('');
     }

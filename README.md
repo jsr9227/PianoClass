@@ -10,6 +10,19 @@ Aplicación web para aprender piano con partituras interactivas, inspirada en el
   - `Z X C V B N M` → Do3 … Si3 (teclas negras: `S D G H J`)
   - `Espacio` reproducir/pausa · `Inicio` volver al principio · `←` `→` compás anterior/siguiente
 
+## Aprendizaje guiado
+
+Además de la biblioteca, PianoClass enseña habilidades con un motor pedagógico adaptativo (detalles y fundamentos en [docs/PEDAGOGIA.md](docs/PEDAGOGIA.md)):
+
+- **Hoy:** una sesión personalizada de 15, 30 o 60 minutos. Alterna técnica, acordes, oído, canciones y memoria/improvisación, y da prioridad a los repasos pendientes y a lo que necesita refuerzo. Cada ejercicio indica qué practicas y por qué.
+- **Mi ruta:** cuatro itinerarios (*Piano desde cero*, *Piano moderno*, *Piano clásico*, *Improvisación y oído*), cada uno con 6 módulos, objetivos y criterios de superación. Es un programa orientativo de 12 semanas que se adapta a tu ritmo. Puedes cambiar de itinerario sin perder progreso.
+- **Dominio por habilidad:** estados *No iniciada / En aprendizaje / Necesita refuerzo / Consolidada / Pendiente de repaso*, calculados con varias dimensiones medidas por MIDI: notas, ritmo, tempo, fluidez, sincronía de manos, acordes y duración.
+- **Ayudas que se retiran:** de la partitura con teclas iluminadas hasta tocar de memoria.
+- **Repetición espaciada** configurable, con calendario de repasos.
+- **Oído:** notas, intervalos, mayor/menor, cambios de acorde, progresiones y tocar melodías de oído.
+- **Armonía:** progresiones I–V–vi–IV, vi–IV–I–V, I–IV–V, ii–V–I, cadencia andaluza i–VII–VI–V y el modo frigio, en cualquier tonalidad. Patrones de acompañamiento (balada, arpegio, rumba 3+3+2) e improvisación sobre el acompañamiento.
+- **Feedback tras cada ejercicio:** qué ha ido bien, qué mejorar (con el dato y el compás), la decisión tomada y la fiabilidad de la medición.
+
 ## Usarla en el móvil con el piano por USB
 
 1. **Publica la app en https** (el navegador solo permite el MIDI en páginas seguras). El repositorio incluye un flujo de GitHub Pages: en GitHub ve a *Settings → Pages → Source: GitHub Actions*, y cada cambio en `main` se publicará en `https://<usuario>.github.io/PianoClass/`. Desde el móvil puedes *Añadir a pantalla de inicio* y funciona como una app, también sin conexión.
@@ -77,6 +90,9 @@ npm test
 - `tests/songs.test.js`: todas las partituras se analizan sin errores y cada compás dura lo que indica el compás de la pieza.
 - `tests/pitch.test.js`: detección de notas y acordes con señales sintéticas de piano (incluye 60 acordes aleatorios) y nombres de acordes.
 - `tests/midi.test.js`: importación de archivos MIDI generados en memoria.
+- `tests/theory.test.js`: grados, tonalidades, conducción de voces y las 480 combinaciones de progresión, tonalidad y patrón.
+- `tests/metrics.test.js`: el `Player` real con un reloj simulado. Comprueba que las métricas miden los errores introducidos a propósito (retrasos, manos desincronizadas, pausas).
+- `tests/engine.test.js`: escalera de etapas, criterios por dimensión, consolidación espaciada, repasos, sesiones (duración, intercalado, adaptación), cambio de itinerario y migración de datos.
 
 **Limitaciones del micrófono:** la detección polifónica funciona bien con sonidos limpios, pero en un piano real influyen el ruido de la sala, la resonancia y la calidad del micrófono. Al practicar se usa la partitura como pista (sabe qué notas esperar), y las notas que el micrófono oiga de más no cuentan como error. Para una detección perfecta, lo mejor sigue siendo un teclado MIDI.
 
@@ -96,6 +112,9 @@ js/player.js      Motor de práctica (modos, bucle, manos, tempo, puntuación)
 js/audio.js       Sintetizador de piano con Web Audio
 js/input.js       Entrada MIDI, teclado del ordenador y micrófono (acordes)
 js/app.js         Lógica de la interfaz y progreso
+js/learning/      Motor pedagógico (teoría, métricas, ejercicios, itinerarios, reglas y sesiones)
+js/learning-ui.js Pantallas Hoy, Mi ruta, Armonía, Progreso, oído y feedback
+docs/PEDAGOGIA.md Diseño pedagógico: evidencia frente a hipótesis, reglas y métricas
 ```
 
 *PianoClass es un proyecto independiente, sin relación con flowkey.*
