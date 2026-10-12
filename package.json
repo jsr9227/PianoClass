@@ -1,0 +1,11 @@
+{
+  "name": "pianoclass",
+  "version": "1.0.0",
+  "description": "Aplicación web para aprender piano con partituras interactivas",
+  "private": true,
+  "scripts": {
+    "test": "node tests/songs.test.js",
+    "start": "npx --yes serve ."
+  },
+  "license": "MIT"
+}

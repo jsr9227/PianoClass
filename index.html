@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PianoClass · Aprende piano</title>
+  <meta name="description" content="Aprende piano con partituras interactivas: modo espera, bucles, manos separadas y teclado MIDI." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Music&display=swap" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <!-- ─────────── Biblioteca ─────────── -->
+  <section id="library" class="view active">
+    <header class="topbar">
+      <div class="brand"><span class="logo" aria-hidden="true">♪</span> PianoClass</div>
+      <div class="topbar-right">
+        <span class="device-status" data-device-status></span>
+        <button class="btn ghost" data-open-help>¿Cómo funciona?</button>
+      </div>
+    </header>
+
+    <main class="library-main">
+      <section class="hero">
+        <div>
+          <h1>Aprende piano a tu ritmo</h1>
+          <p>Elige una partitura, conecta tu teclado MIDI (o usa el teclado del ordenador) y la música esperará a que toques la nota correcta.</p>
+        </div>
+        <div class="hero-card" id="continue-card"></div>
+      </section>
+
+      <div class="library-tools">
+        <div class="chips" id="filters" role="tablist"></div>
+        <input type="search" id="search" placeholder="Buscar canción o compositor…" aria-label="Buscar" />
+      </div>
+      <div class="stats-line" id="stats-line"></div>
+      <div class="grid" id="song-grid"></div>
+    </main>
+  </section>
+
+  <!-- ─────────── Práctica ─────────── -->
+  <section id="practice" class="view">
+    <header class="topbar practice-top">
+      <button class="btn ghost icon" id="back" title="Volver a la biblioteca" aria-label="Volver">←</button>
+      <div class="song-heading">
+        <div class="song-title" id="song-title"></div>
+        <div class="song-composer" id="song-composer"></div>
+      </div>
+      <div class="topbar-right">
+        <span class="device-status" data-device-status></span>
+        <button class="btn ghost" data-open-help>Ayuda</button>
+      </div>
+    </header>
+
+    <div class="tip" id="tip" hidden>
+      <span class="tip-icon" aria-hidden="true">💡</span><span id="tip-text"></span>
+      <button class="btn ghost icon small" id="tip-close" aria-label="Cerrar consejo">✕</button>
+    </div>
+
+    <div class="stage">
+      <div class="sheet-viewport" id="sheet" title="Haz clic en un compás para saltar a él"></div>
+      <div class="falling-wrap" id="falling-wrap">
+        <canvas id="waterfall"></canvas>
+        <div class="wait-hint" id="wait-hint" hidden>Toca las notas resaltadas</div>
+        <div class="count-in" id="count-in" hidden></div>
+      </div>
+      <div class="keyboard" id="keyboard"></div>
+    </div>
+
+    <footer class="controls">
+      <div class="control-group">
+        <button class="btn round" id="restart" title="Volver al inicio (Inicio)" aria-label="Reiniciar">⏮</button>
+        <button class="btn round primary" id="play" title="Reproducir / pausa (Espacio)" aria-label="Reproducir">▶</button>
+      </div>
+
+      <div class="control-group">
+        <span class="control-label">Modo</span>
+        <div class="segmented" id="mode">
+          <button data-value="wait" title="La partitura espera a que toques la nota correcta">Esperar</button>
+          <button data-value="realtime" title="Toca al ritmo; se puntúa la precisión">Tiempo real</button>
+          <button data-value="listen" title="Escucha y observa la canción">Escuchar</button>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <span class="control-label">Manos</span>
+        <div class="segmented" id="hands">
+          <button data-value="L">Izq.</button>
+          <button data-value="both">Ambas</button>
+          <button data-value="R">Der.</button>
+        </div>
+      </div>
+
+      <div class="control-group tempo">
+        <span class="control-label">Tempo <b id="tempo-value">100%</b></span>
+        <input type="range" id="tempo" min="25" max="125" step="5" value="100" aria-label="Tempo" />
+        <span class="bpm" id="bpm"></span>
+      </div>
+
+      <div class="control-group">
+        <button class="btn toggle" id="loop-toggle" title="Repite un fragmento hasta dominarlo">🔁 Bucle</button>
+        <span class="loop-range" id="loop-range" hidden>
+          <select id="loop-from" aria-label="Desde el compás"></select>–<select id="loop-to" aria-label="Hasta el compás"></select>
+        </span>
+      </div>
+
+      <div class="control-group toggles">
+        <button class="btn toggle" id="metronome" title="Metrónomo">𝅘𝅥 Metrónomo</button>
+        <button class="btn toggle on" id="accompany" title="La aplicación toca la mano que no practicas">Acompañamiento</button>
+        <button class="btn toggle on" id="labels" title="Mostrar nombres de las notas">Do Re Mi</button>
+        <button class="btn toggle on" id="falling" title="Mostrar la cascada de notas">Cascada</button>
+        <button class="btn toggle on" id="sound" title="Sonido de la aplicación">🔊</button>
+        <button class="btn toggle" id="mic" title="Usar el micrófono para escuchar tu piano acústico (una nota a la vez)">🎤</button>
+      </div>
+    </footer>
+    <div class="toast" id="toast" hidden></div>
+  </section>
+
+  <!-- ─────────── Resultados ─────────── -->
+  <dialog id="results" class="modal">
+    <h2 id="results-title">¡Bien hecho!</h2>
+    <div class="stars big" id="results-stars"></div>
+    <div class="results-grid">
+      <div><b id="r-accuracy">0%</b><span>precisión</span></div>
+      <div><b id="r-hits">0</b><span>notas correctas</span></div>
+      <div><b id="r-wrong">0</b><span>errores</span></div>
+    </div>
+    <p class="results-msg" id="results-msg"></p>
+    <div class="modal-actions">
+      <button class="btn" id="r-library">Biblioteca</button>
+      <button class="btn" id="r-again">Repetir</button>
+      <button class="btn primary" id="r-next" hidden>Siguiente lección →</button>
+    </div>
+  </dialog>
+
+  <!-- ─────────── Ayuda ─────────── -->
+  <dialog id="help" class="modal wide">
+    <h2>Cómo practicar</h2>
+    <div class="help-cols">
+      <div>
+        <h3>Modos</h3>
+        <ul>
+          <li><b>Esperar:</b> la partitura avanza y se detiene en cada nota hasta que la toques. Ideal para aprender.</li>
+          <li><b>Tiempo real:</b> la canción avanza sin parar, con un compás de entrada. Se puntúa tu precisión.</li>
+          <li><b>Escuchar:</b> escucha la pieza y mira qué teclas se tocan.</li>
+        </ul>
+        <h3>Herramientas</h3>
+        <ul>
+          <li><b>Manos:</b> practica cada mano por separado; la otra la toca la aplicación (Acompañamiento).</li>
+          <li><b>Tempo:</b> baja la velocidad y súbela poco a poco.</li>
+          <li><b>Bucle:</b> repite un fragmento de compases hasta que te salga.</li>
+          <li>Haz clic en cualquier compás de la partitura para saltar a él.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>¿Cómo toco?</h3>
+        <ul>
+          <li><b>Teclado MIDI / piano digital:</b> conéctalo por USB o Bluetooth y se detecta solo (Chrome, Edge u Opera).</li>
+          <li><b>Piano acústico:</b> activa 🎤 el micrófono (detecta una nota a la vez).</li>
+          <li><b>Ratón o pantalla táctil:</b> pulsa las teclas del piano en pantalla.</li>
+          <li><b>Teclado del ordenador:</b></li>
+        </ul>
+        <div class="kbd-map">
+          <div><kbd>Q</kbd> <kbd>W</kbd> <kbd>E</kbd> <kbd>R</kbd> <kbd>T</kbd> <kbd>Y</kbd> <kbd>U</kbd> <kbd>I</kbd> … = Do4 Re4 Mi4 Fa4 Sol4 La4 Si4 Do5 (negras: <kbd>2</kbd> <kbd>3</kbd> <kbd>5</kbd> <kbd>6</kbd> <kbd>7</kbd>)</div>
+          <div><kbd>Z</kbd> <kbd>X</kbd> <kbd>C</kbd> <kbd>V</kbd> <kbd>B</kbd> <kbd>N</kbd> <kbd>M</kbd> = Do3 … Si3 (negras: <kbd>S</kbd> <kbd>D</kbd> <kbd>G</kbd> <kbd>H</kbd> <kbd>J</kbd>)</div>
+          <div><kbd>Espacio</kbd> reproducir/pausa · <kbd>Inicio</kbd> volver al principio · <kbd>←</kbd>/<kbd>→</kbd> compás anterior/siguiente</div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-actions"><button class="btn primary" data-close>Entendido</button></div>
+  </dialog>
+
+  <script src="js/music.js"></script>
+  <script src="js/songs.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/input.js"></script>
+  <script src="js/keyboard.js"></script>
+  <script src="js/sheet.js"></script>
+  <script src="js/player.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
