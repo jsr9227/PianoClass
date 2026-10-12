@@ -1,9 +1,10 @@
 // Service worker: guarda la app para usarla sin conexión (primero la red, si falla la caché).
-const CACHE = 'pianoclass-v3';
+const CACHE = 'pianoclass-v4';
 const FILES = [
   './', 'index.html', 'manifest.webmanifest', 'css/styles.css', 'icons/icon.svg', 'icons/icon-192.png',
   'js/music.js', 'js/songs.js', 'js/songs-extra.js', 'js/pitch.js', 'js/midi-import.js', 'js/audio.js',
-  'js/input.js', 'js/keyboard.js', 'js/sheet.js', 'js/player.js', 'js/app.js',
+  'js/input.js', 'js/keyboard.js', 'js/sheet.js', 'js/player.js', 'js/app.js', 'js/learning-ui.js',
+  'js/learning/theory.js', 'js/learning/metrics.js', 'js/learning/exercises.js', 'js/learning/curriculum.js', 'js/learning/engine.js',
 ];
 self.addEventListener('install', (e) => e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)).then(() => self.skipWaiting())));
 self.addEventListener('activate', (e) =>
