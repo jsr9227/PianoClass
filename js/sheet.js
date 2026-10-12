@@ -25,10 +25,11 @@
       this.viewport = viewport;
       this.noteEls = new Map();
       this.tx = 0;
+      this.scale = 1;
       viewport.addEventListener('click', (e) => {
         if (!this.song || !this.onSeek) return;
         const r = viewport.getBoundingClientRect();
-        const beat = (e.clientX - r.left - this.tx - LEFT_PAD) / this.ppb;
+        const beat = ((e.clientX - r.left) / this.scale - this.tx - LEFT_PAD) / this.ppb;
         if (beat >= -0.5 && beat <= this.song.total) this.onSeek(Math.max(0, beat));
       });
     }
@@ -86,8 +87,11 @@
       this.viewport.innerHTML = `
         <svg class="sheet-svg" width="${width}" height="${HEIGHT}" viewBox="0 0 ${width} ${HEIGHT}">${out.join('')}</svg>
         <svg class="sheet-header" width="${headerWidth(song)}" height="${HEIGHT}">${this._header(song)}</svg>
-        <div class="sheet-cursor" style="left:${this.cursorX}px"></div>`;
+        <div class="sheet-cursor"></div>`;
       this.svg = this.viewport.querySelector('.sheet-svg');
+      this.header = this.viewport.querySelector('.sheet-header');
+      this.cursor = this.viewport.querySelector('.sheet-cursor');
+      this.fit();
       this.loopRect = this.svg.querySelector('#loop-rect');
       this.noteEls.clear();
       this.svg.querySelectorAll('[data-n]').forEach((g) => this.noteEls.set(g.dataset.n, g));
@@ -269,10 +273,21 @@
       }
     }
 
+    // En pantallas bajas (móvil en horizontal) la partitura se reduce para que quepa todo
+    fit() {
+      if (!this.svg) return;
+      const h = this.viewport.clientHeight || HEIGHT;
+      this.scale = Math.min(1, h / HEIGHT);
+      this.header.style.transform = `scale(${this.scale})`;
+      this.cursor.style.left = this.cursorX * this.scale + 'px';
+      if (this.lastBeat != null) this.setPosition(this.lastBeat);
+    }
+
     setPosition(beat) {
       if (!this.svg) return;
+      this.lastBeat = beat;
       this.tx = this.cursorX - this.X(beat);
-      this.svg.style.transform = `translate3d(${this.tx}px,0,0)`;
+      this.svg.style.transform = `scale(${this.scale}) translate3d(${this.tx}px,0,0)`;
     }
 
     setNoteState(id, state) {

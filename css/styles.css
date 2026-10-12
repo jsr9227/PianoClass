@@ -162,8 +162,8 @@ button, input, select { font: inherit; color: inherit; }
   position: relative; height: 262px; flex: none; overflow: hidden; cursor: pointer;
   background: var(--surface); border-bottom: 1px solid var(--line); user-select: none;
 }
-.sheet-svg { position: absolute; left: 0; top: 0; will-change: transform; }
-.sheet-header { position: absolute; left: 0; top: 0; }
+.sheet-svg { position: absolute; left: 0; top: 0; will-change: transform; transform-origin: 0 0; }
+.sheet-header { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
 .header-bg { fill: var(--surface); }
 .sheet-viewport::after {
   /* desvanecido a la derecha del encabezado */
@@ -208,6 +208,13 @@ button, input, select { font: inherit; color: inherit; }
   position: absolute; top: 10px; left: 12px; color: #fff; font-weight: 700; font-size: 1.05rem;
   background: rgba(0, 0, 0, 0.45); padding: 4px 12px; border-radius: 10px; pointer-events: none; transition: opacity 0.6s;
 }
+.note-feedback {
+  position: absolute; top: 10px; right: 12px; color: #fff; font-weight: 700; font-size: 1rem;
+  padding: 4px 12px; border-radius: 10px; pointer-events: none;
+}
+.note-feedback.ok { background: color-mix(in srgb, var(--ok) 85%, #000); }
+.note-feedback.wrong { background: color-mix(in srgb, var(--bad) 85%, #000); }
+.btn.connect { font-size: 0.85rem; padding: 6px 10px; border-color: var(--accent); color: var(--accent); white-space: nowrap; }
 .chord-display.fade { opacity: 0; transition-delay: 0.8s; }
 .wait-hint, .count-in {
   position: absolute; left: 50%; transform: translateX(-50%); color: #fff; pointer-events: none;
@@ -306,5 +313,25 @@ kbd {
   .sheet-viewport { height: 262px; }
   .controls { gap: 8px 12px; padding: 8px 10px; }
   .toggles { margin-left: 0; }
-  .device-status { display: none; }
+  .device-status { max-width: 120px; font-size: 0.75rem; }
+}
+
+/* Móvil en horizontal / pantallas bajas: todo en una pantalla */
+@media (max-height: 560px) {
+  .practice-top { padding: 4px 10px; }
+  .practice-top .song-composer { display: none; }
+  .tip { display: none !important; }
+  .sheet-viewport { height: 34vh; min-height: 110px; }
+  .sheet-cursor { top: 6px; bottom: 6px; }
+  .keyboard { height: 24vh; min-height: 70px; }
+  .falling-wrap { min-height: 30px; }
+  .controls { flex-wrap: nowrap; overflow-x: auto; padding: 4px 8px; gap: 10px; -webkit-overflow-scrolling: touch; }
+  .controls > * { flex: none; }
+  .toggles { flex-wrap: nowrap; margin-left: 0; }
+  .btn.round { width: 36px; height: 36px; }
+  .btn.round.primary { width: 40px; height: 40px; }
+  .tempo input { width: 90px; }
+  .key-label { font-size: 8px; bottom: 2px; }
+  .chord-display, .note-feedback { top: 4px; font-size: 0.85rem; }
+  .toast { top: 8px; }
 }

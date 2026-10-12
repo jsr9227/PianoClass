@@ -1,4 +1,4 @@
-// Entradas: teclado MIDI (Web MIDI), teclado del ordenador y micrófono (detección de tono).
+// Entradas: piano/teclado MIDI (USB o Bluetooth), teclado del ordenador y micrófono (notas y acordes).
 (function (root) {
   const PC = (root.PC = root.PC || {});
   const listeners = { on: [], off: [], status: [] };
@@ -9,6 +9,7 @@
       listeners[type].push(fn);
     },
     noteOn(midi, velocity = 0.8, source = 'ui') {
+      if (source === 'mic' && input.status.midi === 'connected') return;
       emit('on', midi, velocity, source);
     },
     noteOff(midi, source = 'ui') {
@@ -16,38 +17,80 @@
     },
     status: { midi: 'off', midiNames: [], mic: 'off' },
   };
+  let mic = null;
   const setStatus = (patch) => {
     Object.assign(input.status, patch);
     emit('status', input.status);
   };
 
-  // ── Web MIDI ──
+  // ── Web MIDI (piano digital o teclado conectado por USB / Bluetooth) ──
+  // Mientras haya un piano MIDI conectado, las notas llegan exactas desde las teclas:
+  // se ignora el micrófono para no depender del sonido detectado.
+  const midiHeld = new Map(); // id del puerto -> Set de notas pulsadas
+  let midiAccess = null;
+  input.midiConnected = () => input.status.midi === 'connected';
+
   input.initMidi = async function () {
     if (!navigator.requestMIDIAccess) {
       setStatus({ midi: 'unsupported' });
-      return;
+      return false;
+    }
+    if (root.isSecureContext === false) {
+      setStatus({ midi: 'insecure' });
+      return false;
+    }
+    if (midiAccess) {
+      bindMidi();
+      return input.midiConnected();
     }
     try {
-      const access = await navigator.requestMIDIAccess();
-      const bind = () => {
-        const names = [];
-        access.inputs.forEach((port) => {
-          names.push(port.name);
-          port.onmidimessage = (e) => {
-            const [st, note, vel] = e.data;
-            const cmd = st & 0xf0;
-            if (cmd === 0x90 && vel > 0) input.noteOn(note, vel / 127, 'midi');
-            else if (cmd === 0x80 || (cmd === 0x90 && vel === 0)) input.noteOff(note, 'midi');
-          };
-        });
-        setStatus({ midi: names.length ? 'connected' : 'none', midiNames: names });
-      };
-      access.onstatechange = bind;
-      bind();
+      midiAccess = await navigator.requestMIDIAccess({ sysex: false });
+      midiAccess.onstatechange = bindMidi;
+      bindMidi();
+      return input.midiConnected();
     } catch (e) {
       setStatus({ midi: 'denied' });
+      return false;
     }
   };
+
+  function bindMidi() {
+    const names = [];
+    const live = new Set();
+    midiAccess.inputs.forEach((port) => {
+      if (port.state === 'disconnected') return;
+      live.add(port.id);
+      names.push(port.name || 'Piano MIDI');
+      if (!midiHeld.has(port.id)) midiHeld.set(port.id, new Set());
+      const held = midiHeld.get(port.id);
+      port.onmidimessage = (e) => {
+        const [st, note, vel] = e.data;
+        const cmd = st & 0xf0;
+        if (cmd === 0x90 && vel > 0) {
+          held.add(note);
+          input.noteOn(note, vel / 127, 'midi');
+        } else if (cmd === 0x80 || (cmd === 0x90 && vel === 0)) {
+          held.delete(note);
+          input.noteOff(note, 'midi');
+        }
+        // El resto (pedal, control, reloj…) no afecta a la corrección
+      };
+    });
+    // Puertos desconectados: soltar sus teclas para que no se queden «pulsadas»
+    for (const [id, held] of midiHeld) {
+      if (live.has(id)) continue;
+      held.forEach((n) => input.noteOff(n, 'midi'));
+      midiHeld.delete(id);
+    }
+    const connected = names.length > 0;
+    const was = input.status.midi === 'connected';
+    if (connected && mic) {
+      mic.stop();
+      mic = null;
+      setStatus({ mic: 'off' });
+    }
+    setStatus({ midi: connected ? 'connected' : 'none', midiNames: names, midiChanged: connected !== was });
+  }
 
   // ── Teclado del ordenador (distribución tipo "tracker", dos filas) ──
   // Fila inferior Z..M = Do3..Si3, fila superior Q..] = Do4..Sol5. Las teclas negras en la fila de arriba.
@@ -83,8 +126,11 @@
   // ── Micrófono: detección polifónica (acordes) por análisis del espectro ──
   // input.micHints() puede devolver las notas que la partitura espera; se detectan con más facilidad.
   input.micHints = () => new Set();
-  let mic = null;
   input.toggleMic = async function () {
+    if (!mic && input.midiConnected()) {
+      setStatus({ mic: 'blocked' });
+      return;
+    }
     if (mic) {
       mic.stop();
       mic = null;

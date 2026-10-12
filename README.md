@@ -10,6 +10,14 @@ Aplicación web para aprender piano con partituras interactivas, inspirada en el
   - `Z X C V B N M` → Do3 … Si3 (teclas negras: `S D G H J`)
   - `Espacio` reproducir/pausa · `Inicio` volver al principio · `←` `→` compás anterior/siguiente
 
+## Usarla en el móvil con el piano por USB
+
+1. **Publica la app en https** (el navegador solo permite el MIDI en páginas seguras). El repositorio incluye un flujo de GitHub Pages: en GitHub ve a *Settings → Pages → Source: GitHub Actions*, y cada cambio en `main` se publicará en `https://<usuario>.github.io/PianoClass/`. Desde el móvil puedes *Añadir a pantalla de inicio* y funciona como una app, también sin conexión.
+2. **Android:** conecta el puerto *USB to Host* del piano al móvil con un adaptador **OTG**, abre la app en **Chrome** y pulsa **🎹 Conectar piano** (acepta el permiso). Se detecta al momento, incluso si lo enchufas con la canción abierta.
+3. **Con el piano conectado, la corrección es exacta:** cada tecla que pulsas llega por el cable, la app sabe si es la nota correcta y te lo indica («✓ Mi4» o «✗ Fa4 · toca Re4»). **El micrófono se desactiva automáticamente** y cualquier nota oída por él se ignora, para no depender del sonido.
+4. Si tu piano tiene altavoces y oyes las notas por duplicado, desactiva **🎹 Eco**.
+5. **iPhone/iPad:** Safari no permite conectar instrumentos MIDI a páginas web; ahí la alternativa es el micrófono.
+
 ## Funciones
 
 | Función | Descripción |

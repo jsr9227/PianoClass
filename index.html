@@ -8,6 +8,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Music&display=swap" />
   <link rel="stylesheet" href="css/styles.css" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <meta name="theme-color" content="#18b38a" />
 </head>
 <body>
   <!-- ─────────── Biblioteca ─────────── -->
@@ -16,6 +20,7 @@
       <div class="brand"><span class="logo" aria-hidden="true">♪</span> PianoClass</div>
       <div class="topbar-right">
         <span class="device-status" data-device-status></span>
+        <button class="btn connect" data-connect-midi title="Conecta tu piano digital o teclado por USB">🎹 Conectar piano</button>
         <button class="btn ghost" data-open-help>¿Cómo funciona?</button>
       </div>
     </header>
@@ -50,6 +55,7 @@
       </div>
       <div class="topbar-right">
         <span class="device-status" data-device-status></span>
+        <button class="btn connect" data-connect-midi title="Conecta tu piano digital o teclado por USB">🎹 Conectar piano</button>
         <button class="btn ghost" data-open-help>Ayuda</button>
       </div>
     </header>
@@ -64,6 +70,7 @@
       <div class="falling-wrap" id="falling-wrap">
         <canvas id="waterfall"></canvas>
         <div class="chord-display" id="chord-display" hidden aria-live="polite"></div>
+        <div class="note-feedback" id="note-feedback" hidden aria-live="polite"></div>
         <div class="wait-hint" id="wait-hint" hidden>Toca las notas resaltadas</div>
         <div class="count-in" id="count-in" hidden></div>
       </div>
@@ -113,6 +120,7 @@
         <button class="btn toggle on" id="labels" title="Mostrar nombres de las notas">Do Re Mi</button>
         <button class="btn toggle on" id="falling" title="Mostrar la cascada de notas">Cascada</button>
         <button class="btn toggle on" id="sound" title="Sonido de la aplicación">🔊</button>
+        <button class="btn toggle on" id="midi-echo" hidden title="Que la app también suene al tocar tu piano. Desactívalo si tu piano digital ya tiene altavoces y lo oyes doble.">🎹 Eco</button>
         <button class="btn toggle" id="mic" title="Usar el micrófono para escuchar tu piano acústico (reconoce notas y acordes)">🎤</button>
       </div>
     </footer>
@@ -158,9 +166,17 @@
         </ul>
       </div>
       <div>
+        <h3 id="help-connect">Conectar el piano al móvil o la tableta</h3>
+        <ul>
+          <li><b>Android:</b> conecta el piano con un cable USB (el puerto «USB to Host» del piano) y un adaptador <b>OTG</b> al móvil. Abre la app en <b>Chrome</b> y pulsa <b>🎹 Conectar piano</b>; acepta el permiso. El piano se detecta solo y también al enchufarlo más tarde.</li>
+          <li>Con el piano conectado, <b>las notas se corrigen con las teclas que pulsas</b>, de forma exacta: el micrófono se desactiva y no se usa el sonido.</li>
+          <li>Si tu piano tiene altavoces y lo oyes doble, desactiva <b>🎹 Eco</b>.</li>
+          <li><b>iPhone/iPad:</b> Safari no permite conectar instrumentos MIDI a páginas web. Usa el micrófono 🎤, o abre la app en un navegador para iOS con soporte Web MIDI.</li>
+          <li>La app debe abrirse desde una dirección <b>https://</b> (por ejemplo, publicada en GitHub Pages) para que el navegador permita el MIDI.</li>
+        </ul>
         <h3>¿Cómo toco?</h3>
         <ul>
-          <li><b>Teclado MIDI / piano digital:</b> conéctalo por USB o Bluetooth y se detecta solo (Chrome, Edge u Opera).</li>
+          <li><b>Teclado MIDI / piano digital:</b> conéctalo por USB o Bluetooth y se detecta solo (Chrome, Edge u Opera). Es la forma más precisa.</li>
           <li><b>Piano acústico:</b> activa 🎤 el micrófono. Reconoce notas sueltas y acordes; funciona mejor en un lugar silencioso y con el móvil u ordenador cerca del piano.</li>
           <li><b>Ratón o pantalla táctil:</b> pulsa las teclas del piano en pantalla.</li>
           <li><b>Teclado del ordenador:</b></li>
@@ -186,5 +202,8 @@
   <script src="js/sheet.js"></script>
   <script src="js/player.js"></script>
   <script src="js/app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
+  </script>
 </body>
 </html>

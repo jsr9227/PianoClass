@@ -22,7 +22,7 @@
     }
   };
   let progress = load(STORE_KEY, {});
-  const prefs = Object.assign({ labels: true, falling: true, sound: true, accompany: true, metronome: false, tipClosed: {} }, load(PREFS_KEY, {}));
+  const prefs = Object.assign({ labels: true, falling: true, sound: true, accompany: true, metronome: false, midiEcho: true, tipClosed: {} }, load(PREFS_KEY, {}));
   const savePrefs = () => save(PREFS_KEY, prefs);
 
   const starsFor = (acc) => (acc >= 95 ? 3 : acc >= 80 ? 2 : acc >= 50 ? 1 : 0);
@@ -248,6 +248,7 @@
     $('#falling').classList.toggle('on', prefs.falling);
     $('#sound').classList.toggle('on', prefs.sound);
     $('#sound').textContent = prefs.sound ? '🔊' : '🔇';
+    $('#midi-echo').classList.toggle('on', prefs.midiEcho);
     $('#falling-wrap').classList.toggle('collapsed', !prefs.falling);
   }
 
@@ -373,12 +374,16 @@
   PC.input.on('on', (midi, vel, source) => {
     held.add(midi);
     showChord();
-    if (source !== 'mic') PC.audio.noteOn(midi, vel);
+    // Un piano digital ya suena por sí mismo: el eco de la app se puede desactivar
+    if (source !== 'mic' && (source !== 'midi' || prefs.midiEcho)) PC.audio.noteOn(midi, vel);
     if (!$('#practice').classList.contains('active')) return;
+    // Lo que se espera ANTES de procesar la nota (para explicar el error)
+    const expected = player.settings.mode === 'wait' ? [...player.remaining] : [...player.expectedKeys().keys()];
     // En modo Esperar, tocar la nota resaltada arranca la canción
     if (!player.playing && player.settings.mode === 'wait' && player.remaining.has(midi)) player.play();
     const result = player.noteOn(midi, { lenient: source === 'mic' });
     keyboard.press(midi, result === 'ok' ? 'ok' : result === 'wrong' ? 'wrong' : null);
+    if (result !== 'neutral') noteFeedback(midi, result === 'ok', expected, source);
   });
   PC.input.on('off', (midi, source) => {
     held.delete(midi);
@@ -387,22 +392,71 @@
     player.noteOff(midi);
     keyboard.release(midi);
   });
+  // Mensaje de corrección por nota: «✓ Mi4» o «✗ Fa4 · toca Mi4»
+  let feedbackTimer;
+  function noteFeedback(midi, ok, expected, source) {
+    const el = $('#note-feedback');
+    const nm = (m) => PC.music.solfege(m) + (Math.floor(m / 12) - 1);
+    let txt = (ok ? '✓ ' : '✗ ') + nm(midi);
+    if (!ok && expected.length) txt += ' · toca ' + expected.sort((a, b) => a - b).map(nm).join(' + ');
+    el.textContent = txt + (source === 'midi' ? ' 🎹' : '');
+    el.className = 'note-feedback ' + (ok ? 'ok' : 'wrong');
+    el.hidden = false;
+    clearTimeout(feedbackTimer);
+    feedbackTimer = setTimeout(() => (el.hidden = true), ok ? 700 : 1600);
+  }
+
+  const MIDI_HELP = {
+    unsupported: 'Este navegador no permite conectar pianos MIDI. En Android usa Chrome; en iPhone/iPad Safari no es compatible (mira la ayuda).',
+    insecure: 'Para conectar el piano, abre la app desde una dirección https:// (por ejemplo GitHub Pages).',
+    denied: 'Has bloqueado el acceso a dispositivos MIDI. Permítelo en los ajustes del sitio del navegador y vuelve a intentarlo.',
+    none: 'No se detecta ningún piano. Conecta el cable USB (con adaptador OTG en el móvil), enciende el piano y pulsa «Conectar piano».',
+  };
+
   PC.input.on('status', (st) => {
+    const connected = st.midi === 'connected';
     let txt = '';
     let cls = '';
-    if (st.midi === 'connected') {
-      txt = '🎹 ' + st.midiNames[0];
+    if (connected) {
+      txt = '🎹 ' + st.midiNames.join(', ');
       cls = 'ok';
     } else if (st.mic === 'on') {
       txt = '🎤 Micrófono activo';
       cls = 'ok';
-    } else if (st.midi === 'none') txt = '🎹 Sin teclado MIDI';
-    if (st.mic === 'denied') txt = '🎤 Permiso de micrófono denegado';
+    } else if (st.mic === 'denied') txt = '🎤 Permiso de micrófono denegado';
     $$('[data-device-status]').forEach((el) => {
       el.textContent = txt;
       el.className = 'device-status ' + cls;
+      el.title = connected ? 'Las notas se corrigen con las teclas del piano (exacto). El micrófono está desactivado.' : '';
     });
+    $$('[data-connect-midi]').forEach((b) => (b.hidden = connected));
     $('#mic').classList.toggle('on', st.mic === 'on');
+    $('#mic').disabled = connected;
+    $('#mic').title = connected
+      ? 'Desactivado: con el piano conectado por USB se usan las teclas, no el sonido'
+      : 'Usar el micrófono para escuchar tu piano acústico (reconoce notas y acordes)';
+    $('#midi-echo').hidden = !connected;
+    if (st.mic === 'blocked') toast('Con el piano conectado por USB no hace falta el micrófono: se usan las teclas.');
+    if (st.midiChanged) {
+      st.midiChanged = false;
+      toast(connected ? `🎹 ${st.midiNames[0]} conectado: se corregirá con las teclas del piano` : '🎹 Piano desconectado');
+    }
+  });
+
+  $$('[data-connect-midi]').forEach((b) =>
+    b.addEventListener('click', async () => {
+      const ok = await PC.input.initMidi();
+      if (!ok) {
+        alert(MIDI_HELP[PC.input.status.midi] || MIDI_HELP.none);
+        $('#help').showModal();
+        $('#help-connect').scrollIntoView();
+      }
+    })
+  );
+  $('#midi-echo').addEventListener('click', () => {
+    prefs.midiEcho = !prefs.midiEcho;
+    savePrefs();
+    updateControls();
   });
 
   // ── Bucle de animación ──
@@ -436,7 +490,10 @@
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
-  root.addEventListener('resize', () => waterfall.resize());
+  root.addEventListener('resize', () => {
+    waterfall.resize();
+    sheet.fit();
+  });
 
   // ── Resultados ──
   function finish(stats) {
